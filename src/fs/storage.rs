@@ -16,14 +16,14 @@ impl Storage {
     })
   }
 
-  pub fn write(&mut self, offset: u64, bytes: &[u8]) -> io::Result<usize> {
-    self.file.borrow_mut().seek(SeekFrom::Start(offset))?;
+  pub fn write(&mut self, offset: usize, bytes: &[u8]) -> io::Result<usize> {
+    self.file.borrow_mut().seek(SeekFrom::Start(offset as u64))?;
     self.file.borrow_mut().write(bytes)
   }
 
-  pub fn read(&self, offset: u64, size: usize) -> io::Result<Vec<u8>> {
-    self.file.borrow_mut().seek(SeekFrom::Start(offset))?;
-    let mut buffer = vec![0u8; size];
+  pub fn read(&self, offset: usize, size: usize) -> io::Result<Vec<u8>> {
+    self.file.borrow_mut().seek(SeekFrom::Start(offset as u64))?;
+    let mut buffer = vec![0u8; size as usize];
     self.file.borrow_mut().read(buffer.as_mut_slice()).and_then(|total| {
       if total == size { Ok(buffer)}
       else { Err(Error::new(ErrorKind::UnexpectedEof, "unexpected end of")) }
