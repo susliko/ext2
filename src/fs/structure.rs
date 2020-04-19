@@ -2,13 +2,17 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::big_array;
 use std::fmt::Debug;
 use std::mem::size_of;
+use anyhow::{anyhow, Result};
 
 pub const INODES_COUNT: usize = 1024;
-pub const INODES_BITMAP_SIZE: usize = INODES_COUNT / 8;
-pub const DATABLOCK_COUNT: usize = 1024;
-pub const DATA_BITMAP_SIZE: usize = DATABLOCK_COUNT / 8;
-pub const BLOCK_SIZE: usize = 1024;
 pub const INODE_SIZE: usize = size_of::<Inode>();
+pub const INODES_BITMAP_SIZE: usize = INODES_COUNT / 8;
+pub const INODE_LINKS: usize = 12;
+
+pub const BLOCKS_COUNT: usize = 1024;
+pub const BLOCK_SIZE: usize = 1024;
+pub const BLOCKS_BITMAP_SIZE: usize = BLOCKS_COUNT / 8;
+
 pub const SUPERBLOCK_SIZE: usize = size_of::<Superblock>();
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -28,13 +32,13 @@ impl Default for Superblock {
     Superblock {
       block_size: BLOCK_SIZE,
       inode_size: INODE_SIZE,
-      blocks_count: DATABLOCK_COUNT,
+      blocks_count: BLOCKS_COUNT,
       inodes_count: INODES_COUNT,
       data_bitmap: SUPERBLOCK_SIZE,
-      inode_bitmap: SUPERBLOCK_SIZE + DATA_BITMAP_SIZE,
-      inode_table: SUPERBLOCK_SIZE + DATA_BITMAP_SIZE + INODES_BITMAP_SIZE,
+      inode_bitmap: SUPERBLOCK_SIZE + BLOCKS_BITMAP_SIZE,
+      inode_table: SUPERBLOCK_SIZE + BLOCKS_BITMAP_SIZE + INODES_BITMAP_SIZE,
       data_blocks: SUPERBLOCK_SIZE
-        + DATA_BITMAP_SIZE
+        + BLOCKS_BITMAP_SIZE
         + INODES_BITMAP_SIZE
         + INODES_COUNT * INODE_SIZE,
     }
@@ -44,16 +48,16 @@ impl Default for Superblock {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Inode {
   pub size: usize,
-  pub direct: [usize; 12],
-  pub indirect: usize,
+  pub is_directory: bool, 
+  pub direct: [usize; INODE_LINKS],
 }
 
 impl Default for Inode {
   fn default() -> Self {
     Inode {
       size: 0,
+      is_directory: false,
       direct: [0; 12],
-      indirect: 0,
     }
   }
 }
@@ -63,10 +67,10 @@ pub trait Bitmap<'a> {
   fn mutable(&'a mut self) -> &'a mut [u8];
   fn immutable(&'a self) -> &'a [u8];
 
-  fn set(&'a mut self, ind: usize, is_taken: bool) -> Result<(), String> {
+  fn set(&'a mut self, ind: usize, is_taken: bool) -> Result<()> {
     let inner = self.mutable();
     let byte = inner.get(ind / 8)
-      .ok_or(format!("Out of bounds of bitmap: {}", ind))?;
+      .ok_or(anyhow!("Out of bounds of bitmap: {}", ind))?;
     let shift = 7 - ind % 8;
     let upd_byte = if is_taken {
       byte | (1 << shift)
@@ -84,9 +88,11 @@ pub trait Bitmap<'a> {
     (byte << shift) & mask != mask
   }
 
-  fn find_free(&'a self) -> Option<usize> {
-    (0..self.immutable().len() * 8).find(|&i| self.free_at(i))
+  fn find_free_from(&'a self, from: usize) -> Option<usize> {
+    (from..self.immutable().len() * 8).find(|&i| self.free_at(i))
   }
+
+  fn find_free(&'a self) -> Option<usize> { self.find_free_from(0) }
 }
 
 big_array! { BigArray; }
@@ -114,7 +120,7 @@ impl Debug for InodeBitmap {
 #[derive(Serialize, Deserialize,)]
 pub struct DataBitmap {
   #[serde(with = "BigArray")]
-  inner: [u8; DATA_BITMAP_SIZE],
+  inner: [u8; BLOCKS_BITMAP_SIZE],
 }
 
 impl Default for DataBitmap {
@@ -138,7 +144,7 @@ mod tests {
 
   #[test]
   fn set() {
-    let mut bitmap: InodeBitmap = Bitmap::new();
+    let mut bitmap: InodeBitmap = Default::default();
     bitmap.set(8, true).unwrap();
     assert_eq!(bitmap.free_at(8), false);
     bitmap.set(8, false).unwrap();
@@ -148,7 +154,7 @@ mod tests {
 
   #[test]
   fn free_at() {
-    let mut bitmap: InodeBitmap = Bitmap::new();
+    let mut bitmap: InodeBitmap = Default::default();
     bitmap.inner[0] = 0b00000001; bitmap.inner[1] = 0b10001000;
     assert_eq!(bitmap.free_at(0), true);
     assert_eq!(bitmap.free_at(7), false);
@@ -159,11 +165,11 @@ mod tests {
 
   #[test]
   fn find_free() {
-    let mut bitmap1: InodeBitmap = Bitmap::new();
+    let mut bitmap1: InodeBitmap = Default::default();
     bitmap1.inner[0] = 0b11100001;
-    let mut bitmap2: InodeBitmap = Bitmap::new();
+    let mut bitmap2: InodeBitmap = Default::default();
     bitmap2.inner[0] = 0b11111111; bitmap2.inner[1] = 0b11111110;
-    let mut bitmap3: InodeBitmap = Bitmap::new();
+    let mut bitmap3: InodeBitmap = Default::default();
     for b in bitmap3.inner.iter_mut() { *b = 0b11111111 };
     assert_eq!(bitmap1.find_free(), Some(3));
     assert_eq!(bitmap2.find_free(), Some(15));
