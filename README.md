@@ -21,8 +21,8 @@ bashrc
 export PATH=/home/bin
 /home/ > cd ..
 / > rm home/
-/ > cd home/
-Unknown directory name: home//
+/ > cd home
+Unknown directory name: home/
 ```
 
 
