@@ -1,4 +1,4 @@
-A file system of ext2 standard.
+A simplified file system of ext2 standard.
 
 ### How to run
 ```
