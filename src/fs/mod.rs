@@ -31,6 +31,23 @@ impl Fs {
     Ok(ind)
   }
 
+  fn read_data(&self, inode_ind: usize) -> Result<Vec<u8>> {
+    let inode_from = self.superblock.inode_table + inode_ind * INODE_SIZE;
+    let inode_bytes = self.storage.read(inode_from, INODE_SIZE)?;
+    let inode: Inode = bincode::deserialize(&inode_bytes)?;
+    let data_indices = &inode.direct[0..(inode.size as f64 / BLOCK_SIZE as f64).ceil() as usize];
+    println!("reading data from {:?}", data_indices);
+    let mut left_to_read = inode.size;
+    let mut bytes: Vec<u8> = vec![];
+    for ind in data_indices {
+      let read = std::cmp::min(left_to_read, BLOCK_SIZE);
+      left_to_read -= read;
+      let mut batch = self.storage.read(self.superblock.data_blocks + ind * BLOCK_SIZE, read)?;
+      bytes.append(&mut batch);
+    }
+    Ok(bytes)
+  }
+
   fn write_data(&mut self, is_directory: bool, data: &[u8]) -> Result<usize> {
     let blocks_needed = (data.len() as f64 / self.superblock.block_size as f64).ceil() as usize;
     if blocks_needed > INODE_LINKS { return Err(anyhow!("The file is too big")) };
@@ -88,20 +105,31 @@ impl Fs {
     })
   }
 
-  pub fn write_file(&mut self, filename: &str, content: &Vec<u8>) -> Result<()> {
+  pub fn pwd(&self) -> &String {
+    &self.cur_dir
+  }
+
+  pub fn touch(&mut self, filename: String, content: &[u8]) -> Result<()> {
     Ok(())
   }
 
-  pub fn read_file(&self, filename: &str) -> Result<Vec<u8>> {
-    Ok(vec![])
-  }
-
-  pub fn list_all(&self) -> Result<Vec<Inode>> {
-    Ok(vec![])
-  }
-
-  pub fn move_to(&self, dirname: &str) -> Result<()> {
+  pub fn mkdir(&mut self, dirname: String) -> Result<()> {
     Ok(())
   }
 
+  pub fn cat(&self, filename: String) -> Result<Vec<u8>> {
+    Ok(vec![])
+  }
+
+  pub fn ls(&self) -> Result<Vec<&str>> {
+    Ok(vec![])
+  }
+
+  pub fn rm(&mut self, name: String) -> Result<()> {
+    Ok(())
+  }
+
+  pub fn cd(&mut self, name: String) -> Result<()> {
+    Ok(())
+  }
 } 

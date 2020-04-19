@@ -62,6 +62,11 @@ impl Default for Inode {
   }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Directory {
+
+}
+
 // Custom bitmap abstraction with handy methods
 pub trait Bitmap<'a> {
   fn mutable(&'a mut self) -> &'a mut [u8];
