@@ -64,7 +64,8 @@ impl Default for Inode {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Directory {
-
+  pub parent_inode_ind: Option<usize>,
+  pub files: Vec<(usize, String)>
 }
 
 // Custom bitmap abstraction with handy methods
