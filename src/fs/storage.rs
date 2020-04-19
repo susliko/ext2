@@ -26,7 +26,7 @@ impl Storage {
     let mut buffer = vec![0u8; size as usize];
     self.file.borrow_mut().read(buffer.as_mut_slice()).and_then(|total| {
       if total == size { Ok(buffer)}
-      else { Err(Error::new(ErrorKind::UnexpectedEof, "unexpected end of")) }
+      else { Err(Error::new(ErrorKind::UnexpectedEof, "unexpected end of file")) }
     })
   }
 }

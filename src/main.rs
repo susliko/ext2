@@ -40,6 +40,7 @@ fn main() {
   let fs = Fs::new("index.php");
 
   println!("Welcome to a modest ext2-like file system!. Type `help` to list its capabilities.");
+  println!("{:?}", fs);
   loop {
     print!("> ");
     io::stdout().flush().ok().expect("Could not flush stdout");
