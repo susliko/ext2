@@ -12,12 +12,12 @@ use anyhow::{anyhow, Result, Error};
 
 #[derive(Debug)]
 pub struct Fs {
- superblock: Superblock,
- data_bitmap: DataBitmap,
- inode_bitmap: InodeBitmap,
- storage: Storage,
- pub cur_dir: String,
- cur_inode_ind: usize,
+  superblock: Superblock,
+  data_bitmap: DataBitmap,
+  inode_bitmap: InodeBitmap,
+  storage: Storage,
+  pub cur_dir: String,
+  cur_inode_ind: usize,
 }
 
 impl Fs {
@@ -39,7 +39,20 @@ impl Fs {
     let bytes = bincode::serialize(inode)?;
     self.storage.write(offset, &bytes)?;
     self.inode_bitmap.set(ind, true)?;
+    self.dump_inode_bitmap()?;
     Ok(ind)
+  }
+
+  fn dump_inode_bitmap(&mut self) -> Result<()> {
+    let bytes = bincode::serialize(&self.inode_bitmap)?;
+    self.storage.write(self.superblock.inode_bitmap, &bytes)?;
+    Ok(())
+  }
+
+  fn dump_data_bitmap(&mut self) -> Result<()> {
+    let bytes = bincode::serialize(&self.data_bitmap)?;
+    self.storage.write(self.superblock.data_bitmap, &bytes)?;
+    Ok(())
   }
 
   fn free_inode(&mut self, inode_ind: usize) -> Result<()> {
@@ -48,7 +61,10 @@ impl Fs {
     for i in 0..blocks_taken {
       self.data_bitmap.set(inode.direct[i], false)?;
     }
-    self.inode_bitmap.set(inode_ind, false)
+    self.inode_bitmap.set(inode_ind, false)?;
+    self.dump_data_bitmap()?;
+    self.dump_inode_bitmap()?;
+    Ok(())
   }
 
   fn read_data<T: DeserializeOwned>(&self, inode: &Inode) -> Result<T> {
@@ -97,6 +113,7 @@ impl Fs {
       self.storage.write(write_from, &data_bytes[from..to])?;
       self.data_bitmap.set(ind, true)?;
     }
+    self.dump_data_bitmap()?;
     inode.size = data_bytes.len();
     inode.direct = direct;
     Ok(())
@@ -115,7 +132,7 @@ impl Fs {
 
   pub fn new(filename: &str) -> Result<Self> {
     let mut storage = Storage::new(filename)?;
-    fn read_or_new<T: Default + Serialize + DeserializeOwned>
+    fn read_or_new<T: Default + Serialize + DeserializeOwned + Debug>
                     (storage: &mut Storage, offset: usize, size: usize) -> Result<T> {
       storage.read(offset, size).map_err(Error::msg)
         .and_then(|bytes| bincode::deserialize(&bytes).map_err(Error::msg))
@@ -129,7 +146,7 @@ impl Fs {
     let sb = read_or_new::<Superblock>(&mut storage, 0, SUPERBLOCK_SIZE)?;
     let data_bitmap = read_or_new::<DataBitmap>(&mut storage, sb.data_bitmap, BLOCKS_BITMAP_SIZE)?;
     let inode_bitmap = read_or_new::<InodeBitmap>(&mut storage, sb.inode_bitmap, INODES_BITMAP_SIZE)?;
-    
+   
     let mut fs = Fs {
       superblock: sb,
       data_bitmap: data_bitmap,
