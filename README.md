@@ -4,7 +4,8 @@ A simplified file system of ext2 standard.
 ```
 git clone https://github.com/susliko/ext2.git
 cd ext2/
-cargo run
+cargo run --bin ext2server 4242 # run daemon listening on the port 4242
+cargo run --bin ext2client 127.0.0.1 4242 # connect to the daemon running at 127.0.0.1:4242
 ```
 
 ### Example of usage

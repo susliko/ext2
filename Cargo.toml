@@ -9,7 +9,7 @@ bincode = "1.2.1"
 serde = { version = "1.0.106", features = ["derive"] }
 serde-big-array = "0.2.0"
 anyhow = "1.0.28"
-libc = "0.2"
+daemonize = "0.4.1"
 
 [lib]
 name = "fs"
